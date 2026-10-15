@@ -1,14 +1,13 @@
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 from sklearn.metrics import f1_score, confusion_matrix, classification_report
+from sklearn.preprocessing import MinMaxScaler
 from scipy.sparse import hstack
 
 df = pd.read_csv("PhiUSIIL_Phishing_URL_Dataset.csv")
-
 df = df.dropna(subset=['URL', 'label'])
 
 X_text = df['URL'].astype(str)
@@ -20,10 +19,13 @@ df['num_hyphens'] = X_text.apply(lambda x: x.count('-'))
 
 X_numeric = df[['url_length', 'num_dots', 'num_hyphens']].values
 
+scaler = MinMaxScaler()
+X_numeric_scaled = scaler.fit_transform(X_numeric)
+
 vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(2, 4), max_features=5000)
 X_tfidf = vectorizer.fit_transform(X_text)
 
-X_combined = hstack([X_tfidf, X_numeric])
+X_combined = hstack([X_tfidf, X_numeric_scaled])
 
 X_train, X_test, y_train, y_test = train_test_split(X_combined, y, test_size=0.3, random_state=42)
 
@@ -31,7 +33,7 @@ nb_model = MultinomialNB()
 nb_model.fit(X_train, y_train)
 y_pred_nb = nb_model.predict(X_test)
 
-svm_model = SVC(kernel='linear', random_state=42, max_iter=10000)
+svm_model = LinearSVC(random_state=42, max_iter=10000, dual=False)
 svm_model.fit(X_train, y_train)
 y_pred_svm = svm_model.predict(X_test)
 
@@ -43,7 +45,7 @@ def print_metrics(y_true, y_pred, model_name):
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
 
     print(f"Model: {model_name}")
-    print(f"F1-Score: {f1:.4f}")
+    print(f"F1 Score: {f1:.4f}")
     print(f"False Positive Rate (FPR): {fpr:.4f}")
     print("Raport klasyfikacji:")
     print(classification_report(y_true, y_pred))
